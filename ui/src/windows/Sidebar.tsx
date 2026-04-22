@@ -137,7 +137,7 @@ export default function Sidebar() {
 
   const fmtClock = (d: Date) => d.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
 
-  const items    = brief?.items ?? [];
+  const items    = (brief?.items ?? []).filter(i => i.item_type !== "meeting_prep" && i.item_type !== "commitment");
   const filtered = items.filter(i => !filter || i.headline.toLowerCase().includes(filter.toLowerCase()) || i.why_now.toLowerCase().includes(filter.toLowerCase()));
 
   const critCount = items.filter(i => urgency(i) === "high").length;
@@ -213,8 +213,20 @@ export default function Sidebar() {
 
           {/* List */}
           <div style={{ flex:1, overflow:"auto", padding:"6px 8px" }}>
+
+            {/* ── News (top) ── */}
+            {newsFeed && (
+              <div style={{ marginBottom:8 }}>
+                <NewsSection label="World News" dot="var(--cyan)"   items={newsFeed.general}/>
+                <div style={{ height:1, background:"var(--border)", margin:"4px 0", opacity:.4 }}/>
+                <NewsSection label="AI"         dot="var(--violet)" items={newsFeed.ai}/>
+                <div style={{ height:1, background:"var(--border)", margin:"8px 0", opacity:.6 }}/>
+              </div>
+            )}
+
+            {/* ── Attention items ── */}
             {filtered.length === 0 ? (
-              <p style={{ fontSize:11, color:"var(--t4)", fontStyle:"italic", padding:"12px 8px" }}>
+              <p style={{ fontSize:11, color:"var(--t4)", fontStyle:"italic", padding:"4px 8px" }}>
                 {brief ? "Queue is clear" : "Generating…"}
               </p>
             ) : (
@@ -229,16 +241,6 @@ export default function Sidebar() {
                   {i < filtered.length-1 && <div style={{ height:1, background:"var(--border)", margin:"2px 0", opacity:.5 }}/>}
                 </div>
               ))
-            )}
-
-            {/* ── News ── */}
-            {newsFeed && (
-              <div style={{ marginTop:8 }}>
-                <div style={{ height:1, background:"var(--border)", marginBottom:8, opacity:.6 }}/>
-                <NewsSection label="World News" dot="var(--cyan)"   items={newsFeed.general}/>
-                <div style={{ height:1, background:"var(--border)", margin:"4px 0", opacity:.4 }}/>
-                <NewsSection label="AI"         dot="var(--violet)" items={newsFeed.ai}/>
-              </div>
             )}
           </div>
 

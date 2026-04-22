@@ -356,6 +356,84 @@ function LoadingState({ sidebarW }: { sidebarW: number }) {
   );
 }
 
+/* ─── Greeting helper ──────────────────────────────────────────── */
+function timeGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  if (h < 21) return "Good evening";
+  return "Good night";
+}
+
+/* ─── Weather widget ───────────────────────────────────────────── */
+interface WeatherData { temp: number; high: number; low: number; code: number; unit: string; location: string; }
+
+function weatherDesc(code: number): string {
+  if (code === 0) return "Clear sky";
+  if (code <= 3)  return "Partly cloudy";
+  if (code <= 48) return "Foggy";
+  if (code <= 55) return "Drizzle";
+  if (code <= 65) return "Rain";
+  if (code <= 75) return "Snow";
+  if (code <= 82) return "Showers";
+  return "Thunderstorm";
+}
+
+function weatherIcon(code: number): string {
+  if (code === 0) return "☀️";
+  if (code <= 3)  return "⛅";
+  if (code <= 48) return "🌫️";
+  if (code <= 55) return "🌦️";
+  if (code <= 65) return "🌧️";
+  if (code <= 75) return "❄️";
+  if (code <= 82) return "🌦️";
+  return "⛈️";
+}
+
+function WeatherWidget() {
+  const [wx, setWx] = useState<WeatherData | null>(null);
+
+  useEffect(() => {
+    navigator.geolocation?.getCurrentPosition(async pos => {
+      try {
+        const { latitude: lat, longitude: lon } = pos.coords;
+        const [wxRes, geoRes] = await Promise.all([
+          fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`),
+          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`),
+        ]);
+        const wxData  = await wxRes.json();
+        const geoData = await geoRes.json();
+        const addr    = geoData.address ?? {};
+        const location = addr.city ?? addr.town ?? addr.village ?? addr.county ?? addr.state ?? "";
+        setWx({
+          temp: Math.round(wxData.current.temperature_2m),
+          high: Math.round(wxData.daily.temperature_2m_max[0]),
+          low:  Math.round(wxData.daily.temperature_2m_min[0]),
+          code: wxData.current.weather_code,
+          unit: wxData.current_units?.temperature_2m ?? "°C",
+          location,
+        });
+      } catch { /* no-op */ }
+    });
+  }, []);
+
+  if (!wx) return null;
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 14px", background:"var(--s1)", border:"1px solid var(--border)", borderRadius:8, width:"fit-content", marginTop:12 }}>
+      <span style={{ fontSize:20 }}>{weatherIcon(wx.code)}</span>
+      <div>
+        <div style={{ display:"flex", alignItems:"baseline", gap:5 }}>
+          <span style={{ fontFamily:"var(--font-d)", fontSize:22, fontWeight:300, color:"var(--t1)", lineHeight:1 }}>{wx.temp}{wx.unit}</span>
+          <span style={{ fontSize:11, color:"var(--t3)" }}>{weatherDesc(wx.code)}</span>
+        </div>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:9, color:"var(--t4)", marginTop:2, letterSpacing:".04em" }}>
+          {wx.location && <>{wx.location} · </>}H:{wx.high}{wx.unit} · L:{wx.low}{wx.unit}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main component ───────────────────────────────────────────── */
 export default function MorningBrief() {
   const [brief, setBrief]       = useAtom(briefAtom);
@@ -401,10 +479,13 @@ export default function MorningBrief() {
         <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:24, marginBottom:24, animation:"fadeUp .5s ease both" }}>
 
           <div>
-            <div style={{ fontFamily:"var(--font-d)", fontSize:46, fontWeight:300, lineHeight:1.1, letterSpacing:"-.01em", marginBottom:12 }}>
-              Good morning, <em style={{ fontStyle:"italic" }}>there.</em>
+            <div style={{ fontFamily:"var(--font-d)", fontSize:46, fontWeight:300, lineHeight:1.1, letterSpacing:"-.01em", marginBottom:4 }}>
+              {timeGreeting()}, <em style={{ fontStyle:"italic" }}>Irfan.</em>
             </div>
-            <AudioCard text={brief.narrative_text}/>
+            <WeatherWidget/>
+            <div style={{ marginTop:16 }}>
+              <AudioCard text={brief.narrative_text}/>
+            </div>
           </div>
 
           {/* Stat blocks */}
