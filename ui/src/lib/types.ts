@@ -29,3 +29,18 @@ export interface ConnectorStatus {
   status: "connected" | "error" | "syncing";
   error?: string;
 }
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  url: string;
+  source: string;
+  published: string;
+  category: "general" | "ai";
+}
+
+export interface NewsFeed {
+  general: NewsItem[];
+  ai: NewsItem[];
+  fetched_at: string;
+}

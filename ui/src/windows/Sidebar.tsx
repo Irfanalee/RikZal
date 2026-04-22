@@ -1,7 +1,10 @@
 import { useAtom } from "jotai";
 import { useEffect, useState } from "react";
-import { briefAtom, sidebarCollapsedAtom } from "../store/atoms";
-import type { AttentionItem } from "../lib/types";
+import { briefAtom, sidebarCollapsedAtom, newsFeedAtom } from "../store/atoms";
+import type { AttentionItem, NewsItem } from "../lib/types";
+
+const NEWS_URL     = "http://127.0.0.1:8765/api/news";
+const NEWS_POLL_MS = 5 * 60 * 1000;
 
 const SIDEBAR_W = 320;
 const SIDEBAR_C = 48;
@@ -57,15 +60,80 @@ function AttentionRow({ item, rank, active, onClick }: { item: AttentionItem; ra
   );
 }
 
+/* ─── News row ─────────────────────────────────────────────────── */
+function NewsRow({ item }: { item: NewsItem }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onClick={() => window.open(item.url, "_blank")}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        padding:"7px 10px",
+        background: hov ? "var(--s2)" : "transparent",
+        border:"1px solid", borderColor: hov ? "var(--border)" : "transparent",
+        borderRadius:5, cursor:"pointer", transition:"all .15s",
+      }}
+    >
+      <div style={{ fontSize:11, fontWeight:500, color: hov ? "var(--t1)" : "var(--t2)", lineHeight:1.3, marginBottom:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+        {item.title}
+      </div>
+      <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+        <span style={{ fontFamily:"var(--font-m)", fontSize:9, color:"var(--t4)" }}>{item.source}</span>
+        {item.published && <><span style={{ fontFamily:"var(--font-m)", fontSize:9, color:"var(--t4)", opacity:.5 }}>·</span>
+        <span style={{ fontFamily:"var(--font-m)", fontSize:9, color:"var(--t4)" }}>{item.published}</span></>}
+        {hov && <span style={{ marginLeft:"auto", fontSize:9, color:"var(--cyan)" }}>↗</span>}
+      </div>
+    </div>
+  );
+}
+
+/* ─── News section ─────────────────────────────────────────────── */
+function NewsSection({ label, dot, items }: { label: string; dot: string; items: NewsItem[] }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div style={{ marginBottom:4 }}>
+      <div onClick={() => setOpen(o => !o)} style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 4px", cursor:"pointer" }}>
+        <div style={{ width:5, height:5, borderRadius:"50%", background:dot }}/>
+        <span style={{ fontFamily:"var(--font-m)", fontSize:8, color:"var(--t4)", letterSpacing:".1em", textTransform:"uppercase" as const, flex:1 }}>
+          {label}
+        </span>
+        <svg width="10" height="10" viewBox="0 0 24 24" style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition:"transform .2s", color:"var(--t4)" }}>
+          <polyline points="6,9 12,15 18,9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </div>
+      {open && items.map((item, i) => (
+        <div key={item.id} style={{ animation:`slideIn .25s ease ${i*.03}s both` }}>
+          <NewsRow item={item}/>
+          {i < items.length - 1 && <div style={{ height:1, background:"var(--border)", margin:"1px 0", opacity:.4 }}/>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ─── Sidebar ──────────────────────────────────────────────────── */
 export default function Sidebar() {
   const [brief]                   = useAtom(briefAtom);
   const [collapsed, setCollapsed] = useAtom(sidebarCollapsedAtom);
+  const [newsFeed, setNewsFeed]   = useAtom(newsFeedAtom);
   const [active, setActive]       = useState<string | null>(null);
   const [filter, setFilter]       = useState("");
   const [time, setTime]           = useState(new Date());
 
   useEffect(() => { const t = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(t); }, []);
+
+  useEffect(() => {
+    const fetchNews = async () => {
+      try {
+        const res = await fetch(NEWS_URL);
+        if (res.ok) setNewsFeed(await res.json());
+      } catch { /* core not ready */ }
+    };
+    fetchNews();
+    const t = setInterval(fetchNews, NEWS_POLL_MS);
+    return () => clearInterval(t);
+  }, [setNewsFeed]);
 
   const fmtClock = (d: Date) => d.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
 
@@ -162,6 +230,16 @@ export default function Sidebar() {
                 </div>
               ))
             )}
+
+            {/* ── News ── */}
+            {newsFeed && (
+              <div style={{ marginTop:8 }}>
+                <div style={{ height:1, background:"var(--border)", marginBottom:8, opacity:.6 }}/>
+                <NewsSection label="World News" dot="var(--cyan)"   items={newsFeed.general}/>
+                <div style={{ height:1, background:"var(--border)", margin:"4px 0", opacity:.4 }}/>
+                <NewsSection label="AI"         dot="var(--violet)" items={newsFeed.ai}/>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
@@ -182,6 +260,7 @@ export default function Sidebar() {
             <div key={i} style={{ width:6, height:6, borderRadius:"50%", background:"var(--amber)" }}/>
           ))}
           <div style={{ flex:1 }}/>
+          {newsFeed && <div style={{ width:5, height:5, borderRadius:"50%", background:"var(--t4)", marginBottom:6 }} title="News available"/>}
           <div style={{ width:5, height:5, borderRadius:"50%", background:"var(--green)", animation:"pulse 2s ease infinite", marginBottom:12 }}/>
         </div>
       )}

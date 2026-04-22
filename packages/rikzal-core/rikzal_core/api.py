@@ -6,6 +6,7 @@ import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from rikzal_core.news import get_news
 from rikzal_core.store.models import MorningBrief
 
 app = FastAPI(title="RikZal Core API", docs_url=None, redoc_url=None)
@@ -35,6 +36,11 @@ async def get_brief() -> dict | None:
     if _latest_brief is None:
         return None
     return _latest_brief.model_dump(mode="json")
+
+
+@app.get("/api/news")
+async def get_news_feed() -> dict:
+    return await get_news()
 
 
 @app.post("/api/speak")
