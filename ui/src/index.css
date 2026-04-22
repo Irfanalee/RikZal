@@ -1,0 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-deep:      #09090b;
+  --bg-base:      #0d0d10;
+  --bg-elevated:  #141418;
+  --surface:      rgba(255,255,255,0.04);
+  --surface-hover:rgba(255,255,255,0.07);
+  --border:       rgba(255,255,255,0.08);
+  --border-hover: rgba(255,255,255,0.14);
+  --accent:       #5E6AD2;
+  --accent-glow:  rgba(94,106,210,0.18);
+  --fg:           #EDEDEF;
+  --fg-muted:     #8A8F98;
+  --fg-subtle:    #4a4d55;
+  --amber:        #F59E0B;
+  --blue:         #3B82F6;
+  --easing:       cubic-bezier(0.16,1,0.3,1);
+}
+
+* { font-family: 'Inter', system-ui, sans-serif; }
+
+body {
+  background: var(--bg-deep);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1;   }
+}
+
+.animate-pulse-soft { animation: pulse-soft 2s var(--easing) infinite; }

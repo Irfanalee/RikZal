@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rikzal-connectors"
+version = "0.1.0"
+description = "RikZal connector implementations: calendar, email, messaging, tasks, feeds"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.9",
+    "httpx>=0.27",
+    "google-auth>=2.0",
+    "google-auth-oauthlib>=1.0",
+    "google-api-python-client>=2.0",
+    "feedparser>=6.0",
+    "keyring>=25",
+]
+
+[project.entry-points."rikzal.connectors"]
+google_calendar = "rikzal_connectors.calendar.google:GoogleCalendarConnector"
+gmail = "rikzal_connectors.email.gmail:GmailConnector"
+rss = "rikzal_connectors.feeds.rss:RSSConnector"
+
+[tool.hatch.build.targets.wheel]
+packages = ["rikzal_connectors"]

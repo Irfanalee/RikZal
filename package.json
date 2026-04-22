@@ -1,0 +1,9 @@
+{
+  "name": "rikzal",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter ui dev",
+    "build": "pnpm --filter ui build"
+  },
+  "workspaces": ["ui"]
+}

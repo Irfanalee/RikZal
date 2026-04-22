@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rikzal-core"
+version = "0.1.0"
+description = "RikZal agent runtime: LangGraph agents, LLM, NLP, TTS, store client"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "langgraph>=0.2",
+    "langchain-core>=0.3",
+    "ollama>=0.4",
+    "openai>=1.0",
+    "pydantic>=2.9",
+    "python-ulid>=3.0",
+    "msgpack>=1.1",
+    "aiosqlite>=0.20",
+    "apscheduler>=3.10",
+    "fastapi[standard]>=0.115",
+    "rikzal-connectors",
+]
+
+[project.optional-dependencies]
+nlp = [
+    "spacy>=3.8",       # Phase 1: commitment extraction NLP pipeline
+    "sounddevice>=0.5", # Phase 1: TTS audio playback
+]
+
+[project.scripts]
+rikzal-core = "rikzal_core.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["rikzal_core"]
