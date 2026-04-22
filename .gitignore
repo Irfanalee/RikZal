@@ -9,5 +9,19 @@ dist/
 *.db
 *.db-shm
 *.db-wal
+# Environment & secrets — never commit
 .env
 .env.local
+.env.*
+!.env.example
+
+# Credential files — OAuth tokens, service account keys, API keys
+credentials/
+secrets/
+*.token.json
+*.credentials.json
+*_token.json
+*_credentials.json
+token.json
+client_secret*.json
+service_account*.json
