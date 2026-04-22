@@ -1,167 +1,201 @@
 import { useAtom } from "jotai";
-import { briefAtom } from "../store/atoms";
+import { useEffect, useState } from "react";
+import { briefAtom, sidebarCollapsedAtom } from "../store/atoms";
 import type { AttentionItem } from "../lib/types";
 
-const TYPE_LABEL: Record<string, string> = {
-  meeting_prep:  "Meeting",
-  commitment:    "Commitment",
-  unread_thread: "Inbox",
-  task:          "Task",
-  news:          "News",
-};
+const SIDEBAR_W = 320;
+const SIDEBAR_C = 48;
 
-const TYPE_COLOR: Record<string, string> = {
-  meeting_prep:  "var(--blue)",
-  commitment:    "var(--amber)",
-  unread_thread: "var(--fg-subtle)",
-  task:          "var(--accent)",
-  news:          "var(--fg-subtle)",
-};
+function urgency(item: AttentionItem): "high" | "soon" | "med" | "low" {
+  const w = (item.why_now + item.headline).toLowerCase();
+  if (w.includes("overdue") || w.includes("critical") || w.includes("failing")) return "high";
+  if (w.includes("soon") || w.includes("min")) return "soon";
+  if (item.item_type === "meeting_prep") return "med";
+  return "low";
+}
 
-export default function Sidebar() {
-  const [brief] = useAtom(briefAtom);
-  const items   = brief?.items.slice(0, 10) ?? [];
-  const urgent  = items.filter(
-    (i) => i.item_type === "commitment" || i.item_type === "meeting_prep"
-  ).length;
+/* ─── Attention item ───────────────────────────────────────────── */
+function AttentionRow({ item, rank, active, onClick }: { item: AttentionItem; rank: number; active: boolean; onClick: () => void }) {
+  const [hov, setHov] = useState(false);
+  const u     = urgency(item);
+  const isHi  = u === "high" || u === "soon";
+  const barC  = u === "high" ? "var(--red)" : u === "soon" ? "var(--amber)" : undefined;
 
   return (
-    <div
-      className="h-screen flex flex-col"
+    <div onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
-        width: 272,
-        background: "var(--bg-base)",
-        borderLeft: "1px solid var(--border)",
-      }}
-    >
-      {/* ── Header ─────────────────────────────────────── */}
-      <div
-        className="px-5 py-5 flex items-center justify-between shrink-0"
-        style={{ borderBottom: "1px solid var(--border)" }}
-      >
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--accent)" }} />
-          <span className="text-sm font-semibold tracking-tight" style={{ color: "var(--fg)" }}>
-            Today's Focus
-          </span>
-        </div>
-        {urgent > 0 && (
-          <span
-            className="text-xs font-semibold px-2 py-0.5 rounded-full"
-            style={{
-              background: "rgba(94,106,210,0.15)",
-              color: "var(--accent)",
-              border: "1px solid rgba(94,106,210,0.25)",
-            }}
-          >
-            {urgent}
-          </span>
-        )}
-      </div>
-
-      {/* ── Queue ──────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
-        {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 gap-2">
-            <div
-              className="w-1 h-1 rounded-full animate-pulse-soft"
-              style={{ background: "var(--accent)" }}
-            />
-            <p className="text-xs" style={{ color: "var(--fg-subtle)" }}>
-              {brief ? "Queue is clear" : "Loading…"}
-            </p>
+        padding:"9px 12px",
+        background: active || hov ? "var(--s2)" : "transparent",
+        border:"1px solid", borderColor: active ? "var(--border-hi)" : hov ? "var(--border)" : "transparent",
+        borderRadius:6, cursor:"pointer", transition:"all .15s", position:"relative",
+      }}>
+      {isHi && (
+        <div style={{
+          position:"absolute", left:0, top:"18%", bottom:"18%", width:2, borderRadius:1,
+          background: barC,
+          boxShadow: u === "high" ? "0 0 5px var(--red)" : undefined,
+        }}/>
+      )}
+      <div style={{ display:"flex", gap:8, paddingLeft: isHi ? 8 : 0 }}>
+        <span style={{ fontFamily:"var(--font-m)", fontSize:8, color:"var(--t4)", width:12, flexShrink:0, marginTop:1 }}>
+          {String(rank).padStart(2,"0")}
+        </span>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:11.5, fontWeight:500, color: hov || active ? "var(--t1)" : "var(--t2)", lineHeight:1.3, marginBottom:2, transition:"color .15s" }}>{item.headline}</div>
+          <div style={{ fontSize:10, color:"var(--t3)", lineHeight:1.4, marginBottom:5 }}>{item.why_now}</div>
+          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+            <span style={{ fontFamily:"var(--font-m)", fontSize:9, color:"var(--t4)", textTransform:"capitalize" as const }}>{item.item_type.replace("_"," ")}</span>
+            {item.action_hint && (
+              <span style={{ fontFamily:"var(--font-m)", fontSize:10, color:"var(--cyan)", opacity: hov || active ? 1 : 0, transition:"opacity .15s", marginLeft:"auto" }}>
+                {item.action_hint} →
+              </span>
+            )}
           </div>
-        ) : (
-          items.map((item, idx) => (
-            <QueueItem key={item.id} item={item} rank={idx + 1} />
-          ))
-        )}
-      </div>
-
-      {/* ── Footer ─────────────────────────────────────── */}
-      <div
-        className="px-5 py-4 shrink-0"
-        style={{ borderTop: "1px solid var(--border)" }}
-      >
-        <p className="text-xs" style={{ color: "var(--fg-subtle)" }}>
-          {brief?.brief_date
-            ? new Date(brief.brief_date + "T12:00:00").toLocaleDateString("en-US", {
-                month: "short", day: "numeric",
-              })
-            : "–"}
-        </p>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ── Queue item ──────────────────────────────────────────────── */
-function QueueItem({ item, rank }: { item: AttentionItem; rank: number }) {
-  const dotColor = TYPE_COLOR[item.item_type] ?? "var(--fg-subtle)";
-  const typeLabel = TYPE_LABEL[item.item_type] ?? item.item_type;
+/* ─── Sidebar ──────────────────────────────────────────────────── */
+export default function Sidebar() {
+  const [brief]                   = useAtom(briefAtom);
+  const [collapsed, setCollapsed] = useAtom(sidebarCollapsedAtom);
+  const [active, setActive]       = useState<string | null>(null);
+  const [filter, setFilter]       = useState("");
+  const [time, setTime]           = useState(new Date());
+
+  useEffect(() => { const t = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(t); }, []);
+
+  const fmtClock = (d: Date) => d.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+
+  const items    = brief?.items ?? [];
+  const filtered = items.filter(i => !filter || i.headline.toLowerCase().includes(filter.toLowerCase()) || i.why_now.toLowerCase().includes(filter.toLowerCase()));
+
+  const critCount = items.filter(i => urgency(i) === "high").length;
+  const soonCount = items.filter(i => urgency(i) === "soon").length;
+  const medCount  = items.filter(i => urgency(i) === "med").length;
 
   return (
-    <div
-      className="rounded-xl px-3 py-3 cursor-default transition-all duration-150 group"
-      style={{
-        border: "1px solid transparent",
-      }}
-      onMouseEnter={(e) => {
-        const el = e.currentTarget as HTMLDivElement;
-        el.style.background = "var(--surface-hover)";
-        el.style.borderColor = "var(--border)";
-      }}
-      onMouseLeave={(e) => {
-        const el = e.currentTarget as HTMLDivElement;
-        el.style.background = "transparent";
-        el.style.borderColor = "transparent";
-      }}
-    >
-      <div className="flex items-start gap-2.5">
-        {/* Rank */}
-        <span
-          className="text-xs font-semibold tabular-nums mt-0.5 shrink-0 w-4 text-right"
-          style={{ color: "var(--fg-subtle)" }}
-        >
-          {rank}
-        </span>
+    <div style={{
+      position:"fixed", right:0, top:0, bottom:0,
+      width: collapsed ? SIDEBAR_C : SIDEBAR_W,
+      background:"var(--s1)", borderLeft:"1px solid var(--border)",
+      display:"flex", flexDirection:"column",
+      transition:"width .25s cubic-bezier(.4,0,.2,1)",
+      zIndex:20, overflow:"hidden",
+    }}>
 
-        <div className="min-w-0 flex-1">
-          {/* Type badge */}
-          <div className="flex items-center gap-1.5 mb-1">
-            <div className="w-1 h-1 rounded-full shrink-0" style={{ background: dotColor }} />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: dotColor }}>
-              {typeLabel}
-            </span>
+      {/* ── Header ── */}
+      <div style={{
+        padding: collapsed ? "14px 0" : "12px 14px",
+        borderBottom:"1px solid var(--border)",
+        display:"flex", alignItems:"center",
+        justifyContent: collapsed ? "center" : "space-between",
+        gap:8, flexShrink:0,
+      }}>
+        {!collapsed && (
+          <>
+            <div>
+              <div style={{ fontFamily:"var(--font-m)", fontSize:8, color:"var(--t4)", letterSpacing:".12em", textTransform:"uppercase", marginBottom:2 }}>Attention Queue</div>
+              <div style={{ fontFamily:"var(--font-m)", fontSize:12, color:"var(--t2)", letterSpacing:".02em" }}>{fmtClock(time)}</div>
+            </div>
+            <button onClick={() => setCollapsed(true)} style={{ background:"transparent", border:"none", cursor:"pointer", color:"var(--t3)", padding:4, display:"flex", alignItems:"center", transition:"color .15s" }}
+              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color="var(--t1)"}
+              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color="var(--t3)"}>
+              <svg width="14" height="14" viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            </button>
+          </>
+        )}
+        {collapsed && (
+          <button onClick={() => setCollapsed(false)} style={{ background:"transparent", border:"none", cursor:"pointer", color:"var(--t3)", display:"flex", alignItems:"center", transition:"color .15s" }}
+            onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color="var(--t1)"}
+            onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color="var(--t3)"}>
+            <svg width="16" height="16" viewBox="0 0 24 24">
+              <line x1="3" y1="7"  x2="21" y2="7"  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="3" y1="17" x2="21" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* ── Expanded content ── */}
+      {!collapsed && (
+        <>
+          {/* Urgency pills */}
+          {(critCount + soonCount + medCount) > 0 && (
+            <div style={{ padding:"8px 12px", borderBottom:"1px solid var(--border)", display:"flex", gap:5, flexShrink:0 }}>
+              {critCount > 0 && <Pill label={`${critCount} critical`} color="red"/>}
+              {soonCount > 0 && <Pill label={`${soonCount} soon`}     color="amber"/>}
+              {medCount  > 0 && <Pill label={`${medCount} medium`}    color="cyan"/>}
+            </div>
+          )}
+
+          {/* Filter */}
+          <div style={{ padding:"7px 12px", borderBottom:"1px solid var(--border)", flexShrink:0 }}>
+            <input
+              value={filter} onChange={e => setFilter(e.target.value)}
+              placeholder="Filter…"
+              style={{ width:"100%", background:"var(--s2)", border:"1px solid var(--border)", borderRadius:5, padding:"5px 9px", fontFamily:"var(--font-b)", fontSize:11, color:"var(--t2)", outline:"none", transition:"border-color .15s" }}
+              onFocus={e  => (e.target as HTMLInputElement).style.borderColor="var(--border-hi)"}
+              onBlur={e   => (e.target as HTMLInputElement).style.borderColor="var(--border)"}
+            />
           </div>
 
-          {/* Headline */}
-          <p
-            className="text-xs font-medium leading-snug"
-            style={{ color: "var(--fg)" }}
-          >
-            {item.headline}
-          </p>
+          {/* List */}
+          <div style={{ flex:1, overflow:"auto", padding:"6px 8px" }}>
+            {filtered.length === 0 ? (
+              <p style={{ fontSize:11, color:"var(--t4)", fontStyle:"italic", padding:"12px 8px" }}>
+                {brief ? "Queue is clear" : "Generating…"}
+              </p>
+            ) : (
+              filtered.map((item, i) => (
+                <div key={item.id} style={{ animation:`slideIn .3s ease ${i*.04}s both` }}>
+                  <AttentionRow
+                    item={item}
+                    rank={i+1}
+                    active={active === item.id}
+                    onClick={() => setActive(active === item.id ? null : item.id)}
+                  />
+                  {i < filtered.length-1 && <div style={{ height:1, background:"var(--border)", margin:"2px 0", opacity:.5 }}/>}
+                </div>
+              ))
+            )}
+          </div>
 
-          {/* Why now */}
-          <p
-            className="text-xs mt-1 leading-relaxed"
-            style={{ color: "var(--fg-muted)" }}
-          >
-            {item.why_now}
-          </p>
+          {/* Footer */}
+          <div style={{ padding:"8px 14px", borderTop:"1px solid var(--border)", display:"flex", alignItems:"center", gap:7, flexShrink:0 }}>
+            <div style={{ width:5, height:5, borderRadius:"50%", background:"var(--green)", animation:"pulse 2s ease infinite" }}/>
+            <span style={{ fontFamily:"var(--font-m)", fontSize:9, color:"var(--t4)", letterSpacing:".05em" }}>AMBIENT · LOCAL AI RUNNING</span>
+          </div>
+        </>
+      )}
 
-          {/* Action hint — visible on hover */}
-          {item.action_hint && (
-            <p
-              className="text-xs mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 font-medium"
-              style={{ color: "var(--accent)" }}
-            >
-              → {item.action_hint}
-            </p>
-          )}
+      {/* ── Collapsed dots ── */}
+      {collapsed && (
+        <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:10, paddingTop:14 }}>
+          {Array.from({ length: critCount }).map((_,i) => (
+            <div key={i} style={{ width:6, height:6, borderRadius:"50%", background:"var(--red)", boxShadow:"0 0 6px var(--red)" }}/>
+          ))}
+          {Array.from({ length: soonCount }).map((_,i) => (
+            <div key={i} style={{ width:6, height:6, borderRadius:"50%", background:"var(--amber)" }}/>
+          ))}
+          <div style={{ flex:1 }}/>
+          <div style={{ width:5, height:5, borderRadius:"50%", background:"var(--green)", animation:"pulse 2s ease infinite", marginBottom:12 }}/>
         </div>
-      </div>
+      )}
     </div>
+  );
+}
+
+/* ─── Urgency pill ─────────────────────────────────────────────── */
+function Pill({ label, color }: { label: string; color: "red"|"amber"|"cyan" }) {
+  return (
+    <div style={{
+      fontFamily:"var(--font-m)", fontSize:9, letterSpacing:".04em",
+      color:`var(--${color})`, background:`var(--${color}-dim)`,
+      borderRadius:4, padding:"2px 7px",
+    }}>{label}</div>
   );
 }
