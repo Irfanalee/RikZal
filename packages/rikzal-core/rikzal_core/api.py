@@ -2,14 +2,24 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from rikzal_core.news import get_news
+from rikzal_core.store import store
 from rikzal_core.store.models import MorningBrief
 
-app = FastAPI(title="RikZal Core API", docs_url=None, redoc_url=None)
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    await store.open()
+    yield
+    await store.close()
+
+
+app = FastAPI(title="RikZal Core API", docs_url=None, redoc_url=None, lifespan=_lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,6 +34,7 @@ _latest_brief: MorningBrief | None = None
 def set_brief(brief: MorningBrief) -> None:
     global _latest_brief
     _latest_brief = brief
+    asyncio.create_task(store.save_brief(brief))
 
 
 @app.get("/api/health")

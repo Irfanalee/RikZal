@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
 
 from rikzal_core.llm.protocol import LLMProvider
+from rikzal_core.store import store
 from rikzal_core.store.models import AttentionItem, AttentionItemType, MorningBrief
 
 
@@ -39,38 +39,32 @@ def build_brief_graph(llm: LLMProvider) -> Any:
 
 
 async def gather_calendar(state: BriefState) -> BriefState:
-    # TODO: pull from SQLite store once connector sync is wired
-    # Using mock data for Phase 0 validation
-    now = datetime.now(timezone.utc)
-    mock_events = [
+    events = await store.get_today_events(source="google_calendar")
+    calendar_events = [
         {
-            "summary": "Team standup",
-            "start": (now.replace(hour=9, minute=0)).isoformat(),
-            "attendees": ["alice@company.com", "bob@company.com"],
-            "description": "",
-        },
-        {
-            "summary": "Product review with Sarah",
-            "start": (now.replace(hour=14, minute=0)).isoformat(),
-            "attendees": ["sarah@company.com"],
-            "description": "Q2 roadmap review",
-        },
+            "summary": e.payload.get("summary", "(No title)"),
+            "start": e.payload.get("start", {}).get("dateTime") or e.occurred_at.isoformat(),
+            "attendees": [a.get("email", "") for a in e.payload.get("attendees", [])],
+            "description": e.payload.get("description", ""),
+        }
+        for e in events
     ]
-    return {**state, "calendar_events": mock_events}
+    return {**state, "calendar_events": calendar_events}
 
 
 async def gather_commitments(state: BriefState) -> BriefState:
-    # TODO: query SQLite for open commitments with deadline <= today+3
-    mock_commitments = [
+    commitments = await store.get_open_commitments(due_within_days=3)
+    open_commitments = [
         {
-            "id": "c1",
-            "text": "Send Sarah the updated roadmap doc",
-            "promised_to": "Sarah",
-            "deadline": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
-            "status": "open",
+            "id": c.id,
+            "text": c.text,
+            "promised_to": c.promised_to,
+            "deadline": c.deadline.isoformat() if c.deadline else "",
+            "status": c.status.value,
         }
+        for c in commitments
     ]
-    return {**state, "open_commitments": mock_commitments}
+    return {**state, "open_commitments": open_commitments}
 
 
 def make_rank_attention(llm: LLMProvider):
